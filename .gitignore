@@ -1,0 +1,34 @@
+# .gitignore
+
+# Ignore Django migrations
+*/migrations/*
+
+# Ignore all __pycache__ directories
+__pycache__/
+
+# Ignore SQLite database files (if used)
+*.sqlite3
+
+# Ignore the Python environment directory (if using venv)
+env/
+
+# Ignore all .pyc files
+*.pyc
+
+# Ignore all .pyo files
+*.pyo
+
+# Ignore all .env files (environment variables)
+.env
+
+# Ignore Jupyter Notebook checkpoint directories
+.ipynb_checkpoints/
+
+# Ignore VS Code settings directory (if using VS Code as your IDE)
+.vscode/
+
+# Ignore files related to PyCharm (if using PyCharm as your IDE)
+.idea/
+
+# Ignore all .DS_Store files (if using macOS)
+.DS_Store
