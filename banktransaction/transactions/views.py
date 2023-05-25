@@ -8,6 +8,8 @@ from rest_framework import viewsets
 from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
+from transactions.permissions import OnlyReadAuthenticatedWriteSuperuser
+from decimal import Decimal, ROUND_DOWN
 
 
 # Create your views here.
@@ -35,7 +37,16 @@ class CardViewSet(viewsets.ModelViewSet):
 class AccountViewSet(viewsets.ModelViewSet):
     queryset = Account.objects.all()
     serializer_class = AccountSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [OnlyReadAuthenticatedWriteSuperuser]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_superuser:
+            return Account.objects.all()
+        elif user.is_authenticated:
+            return Account.objects.filter(owner=user.id)
+        return Account.objects.none()
+        
 
 class TransactionViewSet(viewsets.ModelViewSet):
     """
@@ -52,6 +63,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
         cvv = validated_data.get('cvv')
         expiration_date = validated_data.get('expiration_date')
         pay_amount = validated_data['total']
+        cuotas = validated_data.get('cuotas')
 
         try:
             # Get the card instance
@@ -64,16 +76,30 @@ class TransactionViewSet(viewsets.ModelViewSet):
                 raise serializers.ValidationError("Invalid expiration date.")
             if card.expiration_date < timezone.now().date():
                 raise serializers.ValidationError("The card is expired.")
-            if card.balance < pay_amount:
-                raise serializers.ValidationError("Insufficient balance.")
-
-            # Create transaction and update card balance within a database transaction
+            
+            # Check card type and apply appropriate balance operation
             with db_transaction.atomic():
-                # subtract the transaction amount from the card balance
-                card.balance -= pay_amount
+                if card.card_type == 'DEBIT':
+                    if card.balance < pay_amount:
+                        raise serializers.ValidationError("Insufficient balance.")
+                    # subtract the transaction amount from the card balance
+                    card.balance -= pay_amount
+                elif card.card_type == 'CREDIT':
+                    if cuotas is None or cuotas < 1:
+                        raise serializers.ValidationError("The number of cuotas must be at least 1.")
+                    
+                    installment_amount = (pay_amount / cuotas) * (1 + card.interest_rate)
+                    new_balance = card.balance + installment_amount * cuotas
+                    
+                    if new_balance > card.credit_limit:
+                        raise serializers.ValidationError("Transaction exceeds credit limit.")
+                    # add the total transaction amount (including interest) to the card balance
+                    new_balance = Decimal(new_balance).quantize(Decimal('0.00'), rounding=ROUND_DOWN)
+                    card.balance = new_balance
+                
                 card.save()
 
-                # save transaction after deducting from card balance
+                # save transaction after modifying card balance
                 serializer.save()
 
         except Card.DoesNotExist:

@@ -44,6 +44,7 @@ class Transaction(models.Model):
     sede = models.CharField(max_length=20, choices=SEDE, default='Barranquilla')
     description = models.CharField(max_length=200, null=True)
     datetime = models.DateTimeField(auto_now=True)
+    cuotas = models.IntegerField(null=True, blank=True)
     total = models.DecimalField(max_digits=10, decimal_places=2)
 
 class Card(models.Model):

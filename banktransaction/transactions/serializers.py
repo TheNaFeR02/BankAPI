@@ -55,4 +55,4 @@ class TransactionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Transaction
-        fields = ['id','card_number', 'cvv', 'expiration_date','sede','description','datetime','total']
+        fields = ['id','card_number', 'cvv', 'expiration_date','sede','description','datetime','cuotas','total']
